@@ -50,7 +50,42 @@ test("interface exposes journal entry and user-provided visual assets", () => {
   const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
   assert.match(html, /id="journalButton"/);
   assert.match(html, /id="journalScreen"/);
-  assert.match(html, /assets\/brush-character\.jpg/);
+  assert.match(html, /assets\/brush-character\.png/);
   assert.match(app, /category-icon/);
   assert.match(app, /building-number/);
+});
+
+test("scratch interaction uses a canvas for local sand erasing", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
+  assert.match(html, /<canvas[^>]+id="scratchCanvas"/);
+  assert.match(app, /destination-out/);
+  assert.match(app, /getImageData/);
+});
+
+test("map supports feathered reveals and focused region navigation", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
+  assert.match(html, /id="zoomInButton"/);
+  assert.match(html, /id="zoomOutButton"/);
+  assert.match(html, /id="resetViewButton"/);
+  assert.match(css, /mask-image:/);
+  assert.match(app, /focusRegion/);
+  assert.match(app, /mapTransform/);
+});
+
+test("journal is a persistent DIY canvas with uploads and PNG export", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
+  assert.match(html, /id="journalCanvas"/);
+  assert.match(html, /id="photoInput"/);
+  assert.match(html, /id="addTextButton"/);
+  assert.match(html, /id="addStickerButton"/);
+  assert.match(html, /id="exportJournalButton"/);
+  assert.match(html, /id="editItemButton"/);
+  assert.match(app, /yuditu:journal/);
+  assert.match(app, /renderJournalToCanvas/);
+  assert.match(app, /toDataURL\("image\/png"/);
+  assert.match(app, /navigator\.share/);
 });
