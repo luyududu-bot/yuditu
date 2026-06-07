@@ -8,14 +8,16 @@
 
 ## 界面预览
 
-| 开场 | 探索地图 | 目标路线 |
-| --- | --- | --- |
-| ![屿地图开场](docs/screenshots/home-preview.png) | ![探索地图](docs/screenshots/map-preview.png) | ![目标路线](docs/screenshots/route-preview.png) |
+| 局部显影 | 扫帚唤醒 | 手账入口 | 完整图鉴 |
+| --- | --- | --- | --- |
+| ![局部显影](docs/screenshots/map-preview.png) | ![扫帚唤醒](docs/screenshots/unlock-preview.png) | ![手账页面](docs/screenshots/journal-preview.png) | ![完整图鉴](docs/screenshots/route-preview.png) |
 
 ## 核心体验
 
-- 四个校园区域可按任意顺序显影，进度保存在浏览器本地。
+- 四个校园区域可按任意顺序局部显影，最后拼成完整彩色校园图鉴。
 - 解锁区域后，结构化地点对象逐步出现并可查看详情。
+- 建筑使用权威编号，补给、打卡、出入口等设施使用定制视觉图标。
+- 地图首屏与底部导航均可进入个人手账。
 - 支持按建筑、展览、补给、打卡、出入口筛选。
 - 用户可表达“我只有 20 分钟，想看最有代表性的地方”等目标。
 - 本地目标解析器读取地点语义、时间约束和代表性分数，生成可解释路线。

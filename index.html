@@ -17,6 +17,7 @@
           <h1>屿地图</h1>
           <p class="hero-line">AI时代，连接空间、展览与记忆，<br />让每一次校园探索都值得被珍藏</p>
           <button class="primary-button" id="enterButton">开始显影校园</button>
+          <button class="hero-journal-button" id="heroJournalButton">打开我的手账本</button>
           <p class="microcopy">扫去尘沙，唤醒属于你的校园图鉴</p>
         </div>
       </section>
@@ -51,8 +52,8 @@
           </div>
           <div class="progress-track"><i id="progressBar"></i></div>
           <div class="map-stage" id="mapStage">
-            <img class="map-base" src="./assets/map.jpg" alt="中央美术学院花家地校区地图" />
-            <div class="sand-overlay" id="sandOverlay"></div>
+            <img class="map-base sandified-map" src="./assets/map.jpg" alt="中央美术学院花家地校区待显影地图" />
+            <div class="reveal-layer" id="revealLayer"></div>
             <div class="route-lines" id="routeLines"></div>
             <div class="region-layer" id="regionLayer"></div>
             <div class="marker-layer" id="markerLayer"></div>
@@ -64,11 +65,38 @@
           <button class="active" data-category="全部">全部</button>
           <button data-category="建筑">建筑</button>
           <button data-category="展览">展览</button>
+          <button data-category="服务">服务</button>
           <button data-category="补给">补给</button>
           <button data-category="打卡">打卡</button>
           <button data-category="出入口">出入口</button>
         </nav>
       </section>
+
+      <section class="journal-screen is-hidden" id="journalScreen">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">MY CAMPUS JOURNAL</p>
+            <h2>我的手账本</h2>
+          </div>
+          <button class="icon-button" id="journalCloseButton" aria-label="返回地图">×</button>
+        </header>
+        <section class="journal-cover">
+          <span class="journal-date">今日探索</span>
+          <h3>把校园里遇见的故事<br />装订成一本小册子</h3>
+          <p id="journalProgress">已显影 0 / 4 片校园之屿</p>
+          <button class="primary-button" id="createJournalButton">创建今日手账</button>
+        </section>
+        <section class="journal-page">
+          <p class="eyebrow">DISCOVERED PLACES</p>
+          <h3>今天发现的地点</h3>
+          <div class="journal-place-list" id="journalPlaceList"></div>
+        </section>
+      </section>
+
+      <nav class="bottom-nav is-hidden" id="bottomNav">
+        <button class="active" id="mapButton"><span>⌖</span>地图</button>
+        <button id="journalButton"><span>▱</span>手账</button>
+      </nav>
     </main>
 
     <dialog class="unlock-dialog" id="unlockDialog">
@@ -76,10 +104,11 @@
       <p class="eyebrow">AREA DISCOVERY</p>
       <h2 id="unlockTitle">唤醒东部</h2>
       <p>拖动扫帚清扫尘沙，显影进度达到 60% 即可完成。</p>
+      <video class="brush-preview" src="./assets/brush.mp4" poster="./assets/brush-character.jpg" autoplay muted loop playsinline></video>
       <div class="scratch-area" id="scratchArea">
-        <img src="./assets/map.jpg" alt="" />
+        <img class="scratch-color-map" src="./assets/map.jpg" alt="" />
         <div class="scratch-sand" id="scratchSand"></div>
-        <div class="brush-cursor" id="brushCursor">🧹</div>
+        <img class="brush-cursor" id="brushCursor" src="./assets/brush-character.jpg" alt="扫帚角色" />
       </div>
       <div class="scratch-progress"><i id="scratchBar"></i></div>
       <strong id="scratchText">显影 0%</strong>

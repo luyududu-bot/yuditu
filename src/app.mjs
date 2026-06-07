@@ -11,7 +11,10 @@ const state = {
 
 const hero = $("#hero");
 const mapScreen = $("#mapScreen");
+const journalScreen = $("#journalScreen");
+const bottomNav = $("#bottomNav");
 const regionLayer = $("#regionLayer");
+const revealLayer = $("#revealLayer");
 const markerLayer = $("#markerLayer");
 const unlockDialog = $("#unlockDialog");
 const detailDialog = $("#detailDialog");
@@ -20,8 +23,14 @@ let scratching = false;
 let scratchValue = 0;
 let lastPoint = null;
 
-function iconFor(category) {
-  return { 建筑: "建", 展览: "展", 补给: "补", 打卡: "印", 出入口: "门" }[category] || "屿";
+function iconClassFor(category) {
+  return {
+    展览: "icon-exhibition",
+    服务: "icon-service",
+    补给: "icon-supply",
+    打卡: "icon-checkin",
+    出入口: "icon-entrance",
+  }[category] || "icon-service";
 }
 
 function persist() {
@@ -32,8 +41,14 @@ function render() {
   const progress = progressFor(state.unlocked);
   $("#progressText").textContent = `${progress}%`;
   $("#progressBar").style.width = `${progress}%`;
-  $("#sandOverlay").style.opacity = String(Math.max(0, .92 - progress / 115));
   $("#mapHint").textContent = progress === 100 ? "校园已完整显影，可以自由探索每一处故事" : "选择一片区域，用扫帚唤醒它";
+
+  revealLayer.innerHTML = state.unlocked.length === regions.length
+    ? `<div class="region-reveal complete-reveal" data-reveal="complete"></div>`
+    : regions
+      .filter((region) => state.unlocked.includes(region.id))
+      .map((region) => `<div class="region-reveal" data-reveal="${region.id}" style="clip-path:polygon(${region.polygon})"></div>`)
+      .join("");
 
   regionLayer.innerHTML = regions.map((region) => `
     <button class="region-chip ${state.unlocked.includes(region.id) ? "unlocked" : ""}"
@@ -45,9 +60,13 @@ function render() {
     const visible = state.unlocked.includes(place.regionId) &&
       (state.category === "全部" || state.category === place.category);
     const routeStop = state.routeStops.includes(place.id);
-    return `<button class="marker ${visible ? "visible" : ""} ${routeStop ? "route-stop" : ""}"
+    const numberBadge = /^\d+$/.test(place.number || "") ? `<i class="marker-number">${place.number}</i>` : "";
+    const markerContent = place.type === "place"
+      ? `<span class="building-number">${place.number}</span>`
+      : `<span class="category-icon ${iconClassFor(place.category)}" aria-hidden="true"></span>${numberBadge}`;
+    return `<button class="marker ${place.type === "place" ? "building-marker" : "asset-marker"} ${visible ? "visible" : ""} ${routeStop ? "route-stop" : ""}"
       data-place="${place.id}" style="left:${place.x}%;top:${place.y}%"
-      aria-label="${place.name}"><span>${iconFor(place.category)}</span></button>`;
+      aria-label="${place.name}">${markerContent}</button>`;
   }).join("");
 
   regionLayer.querySelectorAll("[data-region]").forEach((button) => button.addEventListener("click", () => {
@@ -59,6 +78,7 @@ function render() {
     openUnlock(id);
   }));
   markerLayer.querySelectorAll("[data-place]").forEach((button) => button.addEventListener("click", () => openDetail(button.dataset.place)));
+  renderJournal();
 }
 
 function openUnlock(regionId) {
@@ -118,9 +138,34 @@ function showToast(text) {
   showToast.timer = setTimeout(() => toast.classList.add("is-hidden"), 2600);
 }
 
+function showScreen(screen) {
+  const showMap = screen === "map";
+  mapScreen.classList.toggle("is-hidden", !showMap);
+  journalScreen.classList.toggle("is-hidden", showMap);
+  $("#mapButton").classList.toggle("active", showMap);
+  $("#journalButton").classList.toggle("active", !showMap);
+  if (!showMap) renderJournal();
+}
+
+function renderJournal() {
+  const discovered = places.filter((place) => state.unlocked.includes(place.regionId));
+  $("#journalProgress").textContent = `已显影 ${state.unlocked.length} / 4 片校园之屿 · 发现 ${discovered.length} 个地点`;
+  $("#journalPlaceList").innerHTML = discovered.length
+    ? discovered.slice(0, 8).map((place) => `<button data-place="${place.id}"><b>${place.number}</b><span>${place.name}<small>${place.category}</small></span></button>`).join("")
+    : `<p class="journal-empty">先去地图显影一片区域，这里会收进你发现的地点。</p>`;
+  $("#journalPlaceList").querySelectorAll("[data-place]").forEach((button) => button.addEventListener("click", () => openDetail(button.dataset.place)));
+}
+
 $("#enterButton").addEventListener("click", () => {
   hero.classList.add("is-hidden");
   mapScreen.classList.remove("is-hidden");
+  bottomNav.classList.remove("is-hidden");
+  render();
+});
+$("#heroJournalButton").addEventListener("click", () => {
+  hero.classList.add("is-hidden");
+  bottomNav.classList.remove("is-hidden");
+  showScreen("journal");
   render();
 });
 $("#goalToggle").addEventListener("click", () => $("#goalForm").classList.toggle("is-hidden"));
@@ -143,6 +188,10 @@ $("#resetButton").addEventListener("click", () => {
 });
 $("#closeUnlock").addEventListener("click", () => unlockDialog.close());
 $("#closeDetail").addEventListener("click", () => detailDialog.close());
+$("#mapButton").addEventListener("click", () => showScreen("map"));
+$("#journalButton").addEventListener("click", () => showScreen("journal"));
+$("#journalCloseButton").addEventListener("click", () => showScreen("map"));
+$("#createJournalButton").addEventListener("click", () => showToast("今日手账已创建，继续探索即可自动收集地点"));
 scratchArea.addEventListener("pointerdown", (event) => { scratching = true; lastPoint = null; scratchArea.setPointerCapture(event.pointerId); updateScratch(event); });
 scratchArea.addEventListener("pointermove", updateScratch);
 scratchArea.addEventListener("pointerup", () => { scratching = false; lastPoint = null; });
@@ -158,6 +207,7 @@ const preview = new URLSearchParams(location.search).get("preview");
 if (preview === "map" || preview === "route") {
   hero.classList.add("is-hidden");
   mapScreen.classList.remove("is-hidden");
+  bottomNav.classList.remove("is-hidden");
   state.unlocked = preview === "route" ? regions.map((region) => region.id) : ["east"];
   if (preview === "route") {
     const route = buildRoute(places, parseGoal($("#goalInput").value));
@@ -166,4 +216,18 @@ if (preview === "map" || preview === "route") {
     $("#routeResult").classList.remove("is-hidden");
   }
   render();
+}
+if (preview === "journal") {
+  hero.classList.add("is-hidden");
+  bottomNav.classList.remove("is-hidden");
+  state.unlocked = ["east", "west"];
+  showScreen("journal");
+  render();
+}
+if (preview === "unlock") {
+  hero.classList.add("is-hidden");
+  mapScreen.classList.remove("is-hidden");
+  bottomNav.classList.remove("is-hidden");
+  render();
+  openUnlock("east");
 }

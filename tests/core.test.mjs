@@ -35,3 +35,22 @@ test("transparent map layers do not block region and marker controls", () => {
   assert.match(css, /\.region-layer,\s*\.marker-layer,\s*\.route-lines\s*\{[^}]*pointer-events:\s*none/s);
   assert.match(css, /\.region-chip,\s*\.marker\s*\{[^}]*pointer-events:\s*auto/s);
 });
+
+test("map reveals independent region layers instead of changing global opacity", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
+  assert.match(html, /id="revealLayer"/);
+  assert.match(app, /region-reveal/);
+  assert.match(app, /complete-reveal/);
+  assert.doesNotMatch(app, /sandOverlay"\)\.style\.opacity/);
+});
+
+test("interface exposes journal entry and user-provided visual assets", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
+  assert.match(html, /id="journalButton"/);
+  assert.match(html, /id="journalScreen"/);
+  assert.match(html, /assets\/brush-character\.jpg/);
+  assert.match(app, /category-icon/);
+  assert.match(app, /building-number/);
+});

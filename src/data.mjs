@@ -1,13 +1,14 @@
 export const regions = [
-  { id: "north", name: "北部", subtitle: "学习与生活", x: 48, y: 13 },
-  { id: "west", name: "西部", subtitle: "运动与漫游", x: 26, y: 47 },
-  { id: "east", name: "东部", subtitle: "展览与艺术", x: 76, y: 42 },
-  { id: "south", name: "南部", subtitle: "抵达与日常", x: 55, y: 79 },
+  { id: "north", name: "北部", subtitle: "学习与生活", x: 48, y: 13, polygon: "20% 0%, 83% 0%, 87% 27%, 62% 34%, 43% 29%, 15% 32%" },
+  { id: "west", name: "西部", subtitle: "运动与漫游", x: 26, y: 47, polygon: "10% 25%, 48% 27%, 54% 62%, 43% 76%, 9% 72%" },
+  { id: "east", name: "东部", subtitle: "展览与艺术", x: 76, y: 42, polygon: "48% 25%, 89% 22%, 94% 70%, 53% 73%, 46% 56%" },
+  { id: "south", name: "南部", subtitle: "抵达与日常", x: 55, y: 79, polygon: "8% 67%, 48% 58%, 95% 66%, 96% 100%, 4% 100%" },
 ];
 
 export const places = [
   {
     id: "museum",
+    number: "3",
     name: "美术馆",
     type: "place",
     category: "展览",
@@ -27,6 +28,7 @@ export const places = [
   },
   {
     id: "thinker",
+    number: "B",
     name: "思考者",
     type: "landmark",
     category: "打卡",
@@ -46,6 +48,7 @@ export const places = [
   },
   {
     id: "library",
+    number: "2",
     name: "图书馆",
     type: "place",
     category: "建筑",
@@ -65,6 +68,7 @@ export const places = [
   },
   {
     id: "north_cafe",
+    number: "18",
     name: "北咖啡",
     type: "facility",
     category: "补给",
@@ -84,6 +88,7 @@ export const places = [
   },
   {
     id: "south_gate",
+    number: "南",
     name: "南门",
     type: "entrance",
     category: "出入口",
@@ -103,6 +108,7 @@ export const places = [
   },
   {
     id: "canteen",
+    number: "8",
     name: "第一食堂",
     type: "facility",
     category: "补给",
@@ -120,4 +126,21 @@ export const places = [
       visitMinutes: 12,
     },
   },
+  { id: "building_1", number: "1", name: "行政楼", type: "place", category: "建筑", regionId: "north", x: 40, y: 8, tags: ["建筑"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "校园行政与服务空间。", facilities: ["卫生间", "开水间"], representativeScore: .4, visitMinutes: 3 } },
+  { id: "building_4", number: "4", name: "石膏陈列展览馆", type: "place", category: "展览", regionId: "east", x: 91, y: 39, tags: ["展览"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "校园展览与教学空间。", facilities: ["展览"], representativeScore: .65, visitMinutes: 6 } },
+  { id: "building_5", number: "5", name: "主教学楼", type: "place", category: "建筑", regionId: "east", x: 74, y: 57, tags: ["建筑"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "校园主要教学空间。", facilities: ["卫生间", "开水间"], representativeScore: .6, visitMinutes: 5 } },
+  { id: "building_6", number: "6", name: "雕塑教学楼", type: "place", category: "建筑", regionId: "south", x: 78, y: 83, tags: ["建筑", "雕塑"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "雕塑专业教学空间。", facilities: ["卫生间", "开水间"], representativeScore: .55, visitMinutes: 5 } },
+  { id: "building_7", number: "7", name: "设计学院·建筑学院", type: "place", category: "建筑", regionId: "south", x: 72, y: 94, tags: ["建筑", "设计"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "设计与建筑学科教学空间。", facilities: ["卫生间", "开水间", "咖啡"], representativeScore: .7, visitMinutes: 6 } },
+  { id: "building_9", number: "9", name: "学生公寓", type: "place", category: "建筑", regionId: "south", x: 35, y: 80, tags: ["建筑", "生活"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "学生生活空间。", facilities: ["刷脸进入"], representativeScore: .3, visitMinutes: 2 } },
+  { id: "building_10", number: "10", name: "专家公寓·留学生公寓", type: "place", category: "建筑", regionId: "south", x: 31, y: 89, tags: ["建筑", "生活"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "校园居住空间。", facilities: ["刷脸进入"], representativeScore: .3, visitMinutes: 2 } },
+  { id: "building_11", number: "11", name: "综合楼", type: "place", category: "建筑", regionId: "south", x: 52, y: 81, tags: ["建筑"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "校园综合功能空间。", facilities: [], representativeScore: .35, visitMinutes: 3 } },
+  { id: "building_12", number: "12", name: "供暖中心", type: "place", category: "服务", regionId: "south", x: 61, y: 76, tags: ["服务"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "校园基础设施空间。", facilities: [], representativeScore: .2, visitMinutes: 2 } },
+  { id: "building_13", number: "13", name: "学生公寓·第二食堂", type: "facility", category: "补给", regionId: "south", x: 15, y: 78, tags: ["补给", "吃饭"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "学生生活与餐饮空间。", facilities: ["食堂", "小卖部"], representativeScore: .5, visitMinutes: 8 } },
+  { id: "building_14", number: "14", name: "教学楼", type: "place", category: "建筑", regionId: "north", x: 60, y: 14, tags: ["建筑"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "北区教学空间。", facilities: [], representativeScore: .4, visitMinutes: 3 } },
+  { id: "building_15", number: "15", name: "北区图书馆", type: "place", category: "建筑", regionId: "north", x: 50, y: 14, tags: ["建筑", "图书馆"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "北区阅读与研究空间。", facilities: ["图书馆"], representativeScore: .55, visitMinutes: 5 } },
+  { id: "building_16", number: "16", name: "体育馆", type: "place", category: "建筑", regionId: "north", x: 43, y: 10, tags: ["建筑", "运动"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "校园体育活动空间。", facilities: ["体育馆"], representativeScore: .45, visitMinutes: 4 } },
+  { id: "building_17", number: "17", name: "教学楼", type: "place", category: "建筑", regionId: "north", x: 40, y: 5, tags: ["建筑"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "北区教学空间。", facilities: ["卫生间", "开水间"], representativeScore: .4, visitMinutes: 3 } },
+  { id: "building_19", number: "19", name: "学生服务中心·第三食堂", type: "facility", category: "补给", regionId: "north", x: 52, y: 5, tags: ["补给", "服务"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "学生服务与餐饮空间。", facilities: ["打印", "食堂"], representativeScore: .55, visitMinutes: 7 } },
+  { id: "building_20", number: "20", name: "学生公寓", type: "place", category: "建筑", regionId: "north", x: 31, y: 4, tags: ["建筑", "生活"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "北区学生生活空间。", facilities: [], representativeScore: .25, visitMinutes: 2 } },
+  { id: "building_22", number: "22", name: "学生公寓", type: "place", category: "建筑", regionId: "north", x: 28, y: 3, tags: ["建筑", "生活"], relations: {}, actions: ["view_detail"], constraints: { requiresRegionUnlocked: true }, metadata: { description: "体育场北侧学生公寓。", facilities: [], representativeScore: .25, visitMinutes: 2 } },
 ];
