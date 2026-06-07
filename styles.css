@@ -51,12 +51,13 @@ button { cursor: pointer; }
 .map-base, .sand-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .sand-overlay { pointer-events: none; background: url("./assets/map.jpg") center/cover; filter: sepia(1) saturate(.48) brightness(1.04); opacity: .92; transition: opacity .8s ease; }
 .sand-overlay::after { content: ""; position: absolute; inset: 0; background: rgba(224, 185, 120, .22); mix-blend-mode: multiply; }
-.region-layer, .marker-layer, .route-lines { position: absolute; inset: 0; }
+.region-layer, .marker-layer, .route-lines { position: absolute; inset: 0; pointer-events: none; }
+.region-chip, .marker { pointer-events: auto; }
 .region-chip { position: absolute; transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,.85); border-radius: 999px; padding: 6px 9px; color: #fff; background: rgba(88, 57, 42, .66); box-shadow: 0 3px 12px rgba(44, 26, 18, .25); backdrop-filter: blur(5px); font-size: 10px; }
 .region-chip.unlocked { color: var(--rose-dark); background: rgba(255, 247, 236, .9); }
-.marker { position: absolute; transform: translate(-50%, -50%) scale(.8); width: 30px; height: 30px; border: 2px solid #fff9ef; border-radius: 50% 50% 50% 10%; color: #fff; background: var(--rose); box-shadow: 0 4px 12px rgba(95, 49, 42, .35); opacity: 0; transition: .5s ease; rotate: -45deg; }
+.marker { position: absolute; transform: translate(-50%, -50%) scale(.8); width: 30px; height: 30px; border: 2px solid #fff9ef; border-radius: 50% 50% 50% 10%; color: #fff; background: var(--rose); box-shadow: 0 4px 12px rgba(95, 49, 42, .35); opacity: 0; transition: .5s ease; rotate: -45deg; pointer-events: none; }
 .marker span { display: grid; place-items: center; width: 100%; height: 100%; rotate: 45deg; font: 700 11px system-ui; }
-.marker.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.marker.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
 .marker.route-stop { background: #7e5a82; box-shadow: 0 0 0 6px rgba(255,255,255,.7), 0 0 20px #d3839b; }
 .map-hint { margin: 10px 0 0; text-align: center; color: var(--muted); font-size: 10px; }
 .category-bar { display: flex; gap: 6px; overflow-x: auto; padding: 12px 2px 0; scrollbar-width: none; }

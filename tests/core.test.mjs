@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { applyUnlock, buildRoute, parseGoal, progressFor } from "../src/core.mjs";
 
 const places = [
@@ -27,4 +28,10 @@ test("unlock state stays unique and reports progress", () => {
   assert.deepEqual(applyUnlock(["north"], "north"), ["north"]);
   assert.deepEqual(applyUnlock(["north"], "east"), ["north", "east"]);
   assert.equal(progressFor(["north", "east"]), 50);
+});
+
+test("transparent map layers do not block region and marker controls", () => {
+  const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  assert.match(css, /\.region-layer,\s*\.marker-layer,\s*\.route-lines\s*\{[^}]*pointer-events:\s*none/s);
+  assert.match(css, /\.region-chip,\s*\.marker\s*\{[^}]*pointer-events:\s*auto/s);
 });
