@@ -12,10 +12,12 @@ const types = {
   ".png": "image/png",
 };
 
+const port = Number(process.env.PORT || 4173);
+
 createServer((req, res) => {
   const requestPath = decodeURIComponent(req.url.split("?")[0]);
   let filePath = join(process.cwd(), requestPath === "/" ? "index.html" : requestPath);
   if (!existsSync(filePath) || statSync(filePath).isDirectory()) filePath = join(process.cwd(), "index.html");
   res.setHeader("Content-Type", types[extname(filePath)] || "application/octet-stream");
   createReadStream(filePath).pipe(res);
-}).listen(4173, () => console.log("屿地图运行于 http://localhost:4173"));
+}).listen(port, () => console.log(`屿地图运行于 http://localhost:${port}`));

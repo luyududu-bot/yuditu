@@ -81,7 +81,7 @@
       </section>
 
       <section class="journal-screen is-hidden" id="journalScreen">
-        <header class="topbar">
+        <header class="topbar journal-topbar">
           <div>
             <p class="eyebrow">MY CAMPUS JOURNAL</p>
             <h2>我的手账本</h2>
@@ -89,31 +89,34 @@
           <button class="icon-button" id="journalCloseButton" aria-label="返回地图">×</button>
         </header>
         <p class="journal-intro" id="journalProgress">把发现的地点、照片与文字拼成一张可以分享的校园记忆。</p>
-        <div class="journal-toolbar">
-          <button id="addTextButton">文字</button>
-          <button id="addStickerButton">贴纸</button>
-          <label class="upload-button">照片<input id="photoInput" type="file" accept="image/*" /></label>
-          <button id="addPlaceButton">地点</button>
-          <button id="exportJournalButton" class="accent">导出图片</button>
-        </div>
         <div class="journal-editor-shell">
+          <span class="journal-tape journal-tape-top"></span>
+          <span class="journal-flower">✿</span>
+          <div class="journal-rings" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
           <div class="journal-canvas" id="journalCanvas" aria-label="可自由排版的手账画布"></div>
         </div>
-        <div class="journal-selection-tools">
+        <div class="journal-selection-tools is-hidden" id="journalSelectionTools">
           <button id="editItemButton">编辑文字</button>
-          <button id="rotateLeftButton">左转</button>
-          <button id="rotateRightButton">右转</button>
-          <button id="shrinkItemButton">缩小</button>
-          <button id="growItemButton">放大</button>
-          <button id="sendBackButton">下移</button>
-          <button id="bringFrontButton">上移</button>
+          <button id="rotateLeftButton">↶</button>
+          <button id="rotateRightButton">↷</button>
+          <button id="shrinkItemButton">−</button>
+          <button id="growItemButton">＋</button>
+          <button id="sendBackButton">下移</button><button id="bringFrontButton">置顶</button>
           <button id="deleteItemButton">删除</button>
-          <button id="clearJournalButton">清空</button>
         </div>
-        <section class="journal-place-tray">
-          <p class="eyebrow">DISCOVERED PLACES · 点击加入画布</p>
+        <section class="journal-drawer is-hidden" id="journalDrawer">
+          <header><strong id="journalDrawerTitle">贴纸素材</strong><button id="closeJournalDrawer">×</button></header>
+          <div class="sticker-categories" id="stickerCategories"></div>
           <div class="journal-place-list" id="journalPlaceList"></div>
         </section>
+        <div class="journal-toolbar">
+          <button id="addStickerButton"><span>✿</span>贴纸</button>
+          <button id="addTextButton"><span>T</span>文字</button>
+          <label class="upload-button"><span>▧</span>照片<input id="photoInput" type="file" accept="image/*" /></label>
+          <button id="addPlaceButton"><span>⌖</span>地点</button>
+          <button id="exportJournalButton"><span>⇧</span>导出</button>
+        </div>
+        <button class="clear-journal-button" id="clearJournalButton">清空本页</button>
       </section>
 
       <nav class="bottom-nav is-hidden" id="bottomNav">
@@ -130,6 +133,7 @@
       <div class="scratch-area" id="scratchArea">
         <img class="scratch-color-map" src="./assets/map.jpg" alt="" />
         <canvas class="scratch-sand" id="scratchCanvas"></canvas>
+        <canvas class="sand-particles" id="sandParticleCanvas"></canvas>
         <img class="brush-cursor" id="brushCursor" src="./assets/brush-character.png" alt="扫帚角色" />
       </div>
       <div class="scratch-progress"><i id="scratchBar"></i></div>

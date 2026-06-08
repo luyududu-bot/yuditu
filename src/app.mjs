@@ -1,5 +1,8 @@
 import { applyUnlock, buildRoute, parseGoal, progressFor } from "./core.mjs";
 import { places, regions } from "./data.mjs";
+import { advanceSandParticles, createScratchState, endScratch, interpolateStroke, spawnSandParticles } from "./reveal.mjs";
+import { createAutoJournal, createJournalItem, migrateJournal, sortJournalItems } from "./journal.mjs";
+import { journalStickers } from "./journal-stickers.mjs";
 
 const $ = (selector) => document.querySelector(selector);
 const state = {
@@ -8,8 +11,10 @@ const state = {
   category: "全部",
   routeStops: [],
   mapView: { scale: 1, x: 0, y: 0 },
-  journal: JSON.parse(localStorage.getItem("yuditu:journal") || "[]"),
+  journal: migrateJournal(JSON.parse(localStorage.getItem("yuditu:journal:v2") || localStorage.getItem("yuditu:journal") || "[]")),
   selectedJournalId: null,
+  journalDrawer: null,
+  journalCleared: localStorage.getItem("yuditu:journal:cleared") === "true",
 };
 
 const hero = $("#hero");
@@ -26,10 +31,14 @@ const detailDialog = $("#detailDialog");
 const scratchArea = $("#scratchArea");
 const scratchCanvas = $("#scratchCanvas");
 const scratchContext = scratchCanvas.getContext("2d", { willReadFrequently: true });
+const sandParticleCanvas = $("#sandParticleCanvas");
+const sandParticleContext = sandParticleCanvas.getContext("2d");
 const journalCanvas = $("#journalCanvas");
-let scratching = false;
-let lastScratchPoint = null;
+let scratchState = createScratchState();
 let scratchChecks = 0;
+let sandParticles = [];
+let particleFrame = null;
+let lastParticleTime = performance.now();
 let draggingMap = false;
 let mapDragStart = null;
 let journalDrag = null;
@@ -44,7 +53,7 @@ function persist() {
 
 function persistJournal() {
   try {
-    localStorage.setItem("yuditu:journal", JSON.stringify(state.journal));
+    localStorage.setItem("yuditu:journal:v2", JSON.stringify(state.journal));
   } catch {
     showToast("照片较大，手账暂时无法自动保存，但仍可继续编辑与导出");
   }
@@ -59,7 +68,7 @@ function render() {
   revealLayer.innerHTML = state.unlocked.length === regions.length
     ? `<div class="region-reveal complete-reveal" data-reveal="complete"></div>`
     : regions.filter((region) => state.unlocked.includes(region.id)).map((region) =>
-      `<div class="region-reveal" data-reveal="${region.id}" style="--rx:${region.x}%;--ry:${region.y}%"></div>`
+      `<div class="region-reveal-feather" style="clip-path:polygon(${region.polygon})"></div><div class="region-reveal" data-reveal="${region.id}" style="clip-path:polygon(${region.polygon})"></div>`
     ).join("");
 
   regionLayer.innerHTML = regions.map((region) => `
@@ -120,6 +129,13 @@ function initializeScratchCanvas() {
   const ratio = Math.min(devicePixelRatio || 1, 2);
   scratchCanvas.width = Math.round(rect.width * ratio);
   scratchCanvas.height = Math.round(rect.height * ratio);
+  sandParticleCanvas.width = scratchCanvas.width;
+  sandParticleCanvas.height = scratchCanvas.height;
+  sandParticleCanvas.style.width = `${rect.width}px`;
+  sandParticleCanvas.style.height = `${rect.height}px`;
+  scratchState = createScratchState();
+  sandParticles = [];
+  sandParticleContext.clearRect(0, 0, sandParticleCanvas.width, sandParticleCanvas.height);
   scratchContext.globalCompositeOperation = "source-over";
   scratchContext.fillStyle = "#d9c1a1";
   scratchContext.fillRect(0, 0, scratchCanvas.width, scratchCanvas.height);
@@ -135,7 +151,7 @@ function initializeScratchCanvas() {
 
 function openUnlock(regionId) {
   state.activeRegion = regionId;
-  lastScratchPoint = null;
+  scratchState = createScratchState();
   scratchChecks = 0;
   $("#scratchBar").style.width = "0";
   $("#scratchText").textContent = "显影 0%";
@@ -147,16 +163,20 @@ function openUnlock(regionId) {
 function eraseScratch(x, y, previous) {
   const sx = scratchCanvas.width / scratchArea.clientWidth;
   const sy = scratchCanvas.height / scratchArea.clientHeight;
-  scratchContext.save();
-  scratchContext.globalCompositeOperation = "destination-out";
-  scratchContext.lineCap = "round";
-  scratchContext.lineJoin = "round";
-  scratchContext.lineWidth = 54 * sx;
-  scratchContext.beginPath();
-  scratchContext.moveTo((previous?.x ?? x) * sx, (previous?.y ?? y) * sy);
-  scratchContext.lineTo(x * sx, y * sy);
-  scratchContext.stroke();
-  scratchContext.restore();
+  interpolateStroke(previous, { x, y }, 8).forEach((point) => {
+    scratchContext.save();
+    scratchContext.globalCompositeOperation = "destination-out";
+    const radius = 36 * sx;
+    const gradient = scratchContext.createRadialGradient(point.x * sx, point.y * sy, radius * .18, point.x * sx, point.y * sy, radius);
+    gradient.addColorStop(0, "rgba(0,0,0,1)");
+    gradient.addColorStop(.55, "rgba(0,0,0,.82)");
+    gradient.addColorStop(1, "rgba(0,0,0,0)");
+    scratchContext.fillStyle = gradient;
+    scratchContext.beginPath();
+    scratchContext.arc(point.x * sx, point.y * sy, radius, 0, Math.PI * 2);
+    scratchContext.fill();
+    scratchContext.restore();
+  });
 }
 
 function erasedPercent() {
@@ -168,13 +188,19 @@ function erasedPercent() {
 }
 
 function updateScratch(event) {
-  if (!scratching || !state.activeRegion) return;
+  if (!scratchState.active || !state.activeRegion) return;
   const rect = scratchArea.getBoundingClientRect();
   const point = { x: Math.max(0, Math.min(rect.width, event.clientX - rect.left)), y: Math.max(0, Math.min(rect.height, event.clientY - rect.top)) };
   $("#brushCursor").style.left = `${point.x}px`;
   $("#brushCursor").style.top = `${point.y}px`;
-  eraseScratch(point.x, point.y, lastScratchPoint);
-  lastScratchPoint = point;
+  if (scratchState.lastPoint) {
+    const angle = Math.atan2(point.y - scratchState.lastPoint.y, point.x - scratchState.lastPoint.x) * 180 / Math.PI;
+    $("#brushCursor").style.transform = `translate(-50%, -50%) rotate(${angle + 72}deg)`;
+    sandParticles = spawnSandParticles(sandParticles, point, scratchState.lastPoint, { count: matchMedia("(prefers-reduced-motion: reduce)").matches ? 2 : 7 });
+    startParticleAnimation();
+  }
+  eraseScratch(point.x, point.y, scratchState.lastPoint);
+  scratchState.lastPoint = point;
   if (++scratchChecks % 4 !== 0) return;
   const percent = erasedPercent();
   $("#scratchBar").style.width = `${percent}%`;
@@ -183,7 +209,7 @@ function updateScratch(event) {
 }
 
 function finishUnlock() {
-  scratching = false;
+  scratchState = endScratch();
   const region = regions.find((item) => item.id === state.activeRegion);
   state.unlocked = applyUnlock(state.unlocked, state.activeRegion);
   persist();
@@ -192,6 +218,34 @@ function finishUnlock() {
   render();
   requestAnimationFrame(() => focusRegion(region.id));
   showToast(`${region.name}显影完成，已为你放大这片校园`);
+}
+
+function drawSandParticles(now) {
+  const elapsed = Math.min(40, now - lastParticleTime);
+  lastParticleTime = now;
+  sandParticles = advanceSandParticles(sandParticles, elapsed);
+  const sx = sandParticleCanvas.width / scratchArea.clientWidth;
+  sandParticleContext.clearRect(0, 0, sandParticleCanvas.width, sandParticleCanvas.height);
+  sandParticles.forEach((particle) => {
+    sandParticleContext.save();
+    sandParticleContext.globalAlpha = 1 - particle.age / particle.life;
+    sandParticleContext.translate(particle.x * sx, particle.y * sx);
+    sandParticleContext.rotate(particle.rotation);
+    sandParticleContext.fillStyle = particle.radius > 3 ? "#c99b62" : "#ead2a6";
+    sandParticleContext.fillRect(-particle.radius * sx, -particle.radius * .45 * sx, particle.radius * 2 * sx, particle.radius * .9 * sx);
+    sandParticleContext.restore();
+  });
+  particleFrame = sandParticles.length ? requestAnimationFrame(drawSandParticles) : null;
+}
+
+function startParticleAnimation() {
+  if (particleFrame) return;
+  lastParticleTime = performance.now();
+  particleFrame = requestAnimationFrame(drawSandParticles);
+}
+
+function stopScratch() {
+  scratchState = endScratch();
 }
 
 function openDetail(id) {
@@ -226,20 +280,19 @@ function uid() {
 }
 
 function addJournalItem(item) {
-  const offset = state.journal.length % 6;
-  state.journal.push({ id: uid(), x: 28 + offset * 8, y: 25 + offset * 9, rotation: (offset - 2) * 3, scale: 1, z: state.journal.length + 1, ...item });
-  state.selectedJournalId = state.journal.at(-1).id;
+  const offset = state.journal.items.length % 6;
+  state.journal.items.push(createJournalItem(item.type, { x: 28 + offset * 8, y: 25 + offset * 9, rotation: (offset - 2) * 3, ...item }, state.journal.items.length));
+  state.selectedJournalId = state.journal.items.at(-1).id;
+  state.journalCleared = false;
+  state.journalDrawer = null;
+  localStorage.removeItem("yuditu:journal:cleared");
   persistJournal();
   renderJournal();
 }
 
 function defaultJournal() {
-  if (state.journal.length) return;
-  state.journal = [
-    { id: uid(), type: "text", text: "今日校园漫游", x: 50, y: 11, rotation: -2, scale: 1.15, z: 1 },
-    { id: uid(), type: "sticker", text: "✦", x: 82, y: 19, rotation: 8, scale: .85, z: 2 },
-    { id: uid(), type: "text", text: "把遇见的故事贴在这里", x: 50, y: 87, rotation: 1, scale: .8, z: 3 },
-  ];
+  if (state.journal.items.length || state.journalCleared) return;
+  state.journal = createAutoJournal(places, state.unlocked);
   persistJournal();
 }
 
@@ -247,10 +300,10 @@ function renderJournal() {
   defaultJournal();
   const discovered = places.filter((place) => state.unlocked.includes(place.regionId));
   $("#journalProgress").textContent = `已显影 ${state.unlocked.length} / 4 片校园之屿 · 发现 ${discovered.length} 个地点。拖动素材自由排版，点选后可缩放与旋转。`;
-  journalCanvas.innerHTML = state.journal.sort((a, b) => a.z - b.z).map((item) => {
+  journalCanvas.innerHTML = sortJournalItems(state.journal.items).map((item) => {
     const style = `left:${item.x}%;top:${item.y}%;--rotation:${item.rotation}deg;--scale:${item.scale};z-index:${item.z}`;
     const selected = item.id === state.selectedJournalId ? "selected" : "";
-    if (item.type === "photo") return `<div class="journal-item photo ${selected}" data-journal-id="${item.id}" style="${style}"><img src="${item.src}" alt="用户上传照片" /></div>`;
+    if (item.type === "photo" || item.type === "sticker") return `<div class="journal-item ${item.type} ${selected}" data-journal-id="${item.id}" style="${style}"><img src="${item.src}" alt="${item.title || "手账素材"}" /></div>`;
     if (item.type === "place") return `<div class="journal-item place ${selected}" data-journal-id="${item.id}" style="${style}"><b>${item.number}</b><span>${item.name}<small>${item.category}</small></span></div>`;
     return `<div class="journal-item ${item.type} ${selected}" data-journal-id="${item.id}" style="${style}">${item.text}</div>`;
   }).join("");
@@ -259,13 +312,31 @@ function renderJournal() {
     ? discovered.map((place) => `<button data-add-place="${place.id}"><b>${place.number}</b><span>${place.name}<small>${place.category}</small></span></button>`).join("")
     : `<p class="journal-empty">先去地图显影区域，发现的地点会成为手账素材。</p>`;
   $("#journalPlaceList").querySelectorAll("[data-add-place]").forEach((button) => button.addEventListener("click", () => addPlaceToJournal(button.dataset.addPlace)));
+  $("#journalSelectionTools").classList.toggle("is-hidden", !state.selectedJournalId);
+  renderJournalDrawer();
+}
+
+function renderJournalDrawer() {
+  const drawer = $("#journalDrawer");
+  drawer.classList.toggle("is-hidden", !state.journalDrawer);
+  if (!state.journalDrawer) return;
+  $("#journalDrawerTitle").textContent = state.journalDrawer === "stickers" ? "选择一枚贴纸" : "选择发现地点";
+  $("#stickerCategories").classList.toggle("is-hidden", state.journalDrawer !== "stickers");
+  $("#journalPlaceList").classList.toggle("is-hidden", state.journalDrawer !== "places");
+  if (state.journalDrawer === "stickers") {
+    $("#stickerCategories").innerHTML = journalStickers.map((sticker) => `<button data-sticker="${sticker.id}"><img src="${sticker.src}" alt="${sticker.title}"><span>${sticker.category}</span></button>`).join("");
+    $("#stickerCategories").querySelectorAll("[data-sticker]").forEach((button) => button.addEventListener("click", () => {
+      const sticker = journalStickers.find((item) => item.id === button.dataset.sticker);
+      addJournalItem({ type: "sticker", src: sticker.src, title: sticker.title, scale: sticker.scale });
+    }));
+  }
 }
 
 function startJournalDrag(event) {
   event.preventDefault();
   const id = event.currentTarget.dataset.journalId;
   state.selectedJournalId = id;
-  const item = state.journal.find((entry) => entry.id === id);
+  const item = state.journal.items.find((entry) => entry.id === id);
   journalDrag = { id, startX: event.clientX, startY: event.clientY, x: item.x, y: item.y };
   event.currentTarget.setPointerCapture(event.pointerId);
   journalCanvas.querySelectorAll(".journal-item").forEach((element) => element.classList.toggle("selected", element.dataset.journalId === id));
@@ -274,7 +345,7 @@ function startJournalDrag(event) {
 function moveJournalItem(event) {
   if (!journalDrag) return;
   const rect = journalCanvas.getBoundingClientRect();
-  const item = state.journal.find((entry) => entry.id === journalDrag.id);
+  const item = state.journal.items.find((entry) => entry.id === journalDrag.id);
   item.x = Math.max(4, Math.min(96, journalDrag.x + (event.clientX - journalDrag.startX) / rect.width * 100));
   item.y = Math.max(4, Math.min(96, journalDrag.y + (event.clientY - journalDrag.startY) / rect.height * 100));
   const element = journalCanvas.querySelector(`[data-journal-id="${item.id}"]`);
@@ -291,7 +362,7 @@ function endJournalDrag() {
 }
 
 function mutateSelected(callback) {
-  const item = state.journal.find((entry) => entry.id === state.selectedJournalId);
+  const item = state.journal.items.find((entry) => entry.id === state.selectedJournalId);
   if (!item) return showToast("先点选一个手账素材");
   callback(item);
   persistJournal();
@@ -328,7 +399,7 @@ async function renderJournalToCanvas() {
   context.strokeStyle = "rgba(110,75,55,.08)";
   for (let x = 0; x < output.width; x += 55) { context.beginPath(); context.moveTo(x, 0); context.lineTo(x, output.height); context.stroke(); }
   for (let y = 0; y < output.height; y += 55) { context.beginPath(); context.moveTo(0, y); context.lineTo(output.width, y); context.stroke(); }
-  for (const item of [...state.journal].sort((a, b) => a.z - b.z)) {
+  for (const item of sortJournalItems(state.journal.items)) {
     context.save();
     context.translate(item.x / 100 * output.width, item.y / 100 * output.height);
     context.rotate(item.rotation * Math.PI / 180);
@@ -337,6 +408,9 @@ async function renderJournalToCanvas() {
       roundedRect(context, -160, -135, 320, 300, 5, "#fffdf8");
       const image = await loadImage(item.src);
       context.drawImage(image, -145, -120, 290, 230);
+    } else if (item.type === "sticker") {
+      const image = await loadImage(item.src);
+      context.drawImage(image, -150, -100, 300, 200);
     } else if (item.type === "place") {
       roundedRect(context, -155, -45, 310, 90, 10, "#fffaf0");
       context.fillStyle = "#cf766f"; context.beginPath(); context.arc(-112, 0, 28, 0, Math.PI * 2); context.fill();
@@ -388,7 +462,7 @@ $("#goalForm").addEventListener("submit", (event) => {
   render();
 });
 $("#resetButton").addEventListener("click", () => { if (confirm("重新覆盖校园尘沙并清除显影进度？")) { state.unlocked = []; state.routeStops = []; persist(); resetMapView(); render(); } });
-$("#closeUnlock").addEventListener("click", () => unlockDialog.close());
+$("#closeUnlock").addEventListener("click", () => { stopScratch(); unlockDialog.close(); });
 $("#closeDetail").addEventListener("click", () => detailDialog.close());
 $("#mapButton").addEventListener("click", () => showScreen("map"));
 $("#journalButton").addEventListener("click", () => showScreen("journal"));
@@ -397,9 +471,11 @@ $("#zoomInButton").addEventListener("click", () => setMapView(state.mapView.scal
 $("#zoomOutButton").addEventListener("click", () => setMapView(state.mapView.scale - .35));
 $("#resetViewButton").addEventListener("click", resetMapView);
 
-scratchArea.addEventListener("pointerdown", (event) => { scratching = true; lastScratchPoint = null; scratchArea.setPointerCapture(event.pointerId); updateScratch(event); });
+scratchArea.addEventListener("pointerdown", (event) => { scratchState = { active: true, pointerId: event.pointerId, lastPoint: null }; scratchArea.setPointerCapture(event.pointerId); updateScratch(event); });
 scratchArea.addEventListener("pointermove", updateScratch);
-scratchArea.addEventListener("pointerup", () => { scratching = false; lastScratchPoint = null; });
+scratchArea.addEventListener("pointerup", stopScratch);
+scratchArea.addEventListener("pointercancel", stopScratch);
+scratchArea.addEventListener("lostpointercapture", stopScratch);
 
 mapStage.addEventListener("pointerdown", (event) => {
   if (state.mapView.scale <= 1 || event.target.closest("button")) return;
@@ -427,13 +503,14 @@ $("#addTextButton").addEventListener("click", () => {
   if (text?.trim()) addJournalItem({ type: "text", text: text.trim() });
 });
 $("#addStickerButton").addEventListener("click", () => {
-  const stickers = ["✦", "♡", "☀", "✿", "⌖"];
-  addJournalItem({ type: "sticker", text: stickers[state.journal.length % stickers.length] });
+  state.journalDrawer = "stickers";
+  renderJournalDrawer();
 });
 $("#addPlaceButton").addEventListener("click", () => {
-  const place = places.find((entry) => state.unlocked.includes(entry.regionId));
-  place ? addPlaceToJournal(place.id) : showToast("先显影一个区域，地点才能成为手账素材");
+  state.journalDrawer = "places";
+  renderJournalDrawer();
 });
+$("#closeJournalDrawer").addEventListener("click", () => { state.journalDrawer = null; renderJournalDrawer(); });
 $("#photoInput").addEventListener("change", (event) => {
   const file = event.target.files[0];
   if (!file) return;
@@ -444,7 +521,7 @@ $("#photoInput").addEventListener("change", (event) => {
 });
 $("#exportJournalButton").addEventListener("click", exportJournal);
 $("#editItemButton").addEventListener("click", () => {
-  const item = state.journal.find((entry) => entry.id === state.selectedJournalId);
+  const item = state.journal.items.find((entry) => entry.id === state.selectedJournalId);
   if (!item || item.type !== "text") return showToast("请先点选一段文字");
   const text = prompt("修改文字：", item.text);
   if (text?.trim()) mutateSelected((entry) => entry.text = text.trim());
@@ -454,11 +531,12 @@ $("#rotateRightButton").addEventListener("click", () => mutateSelected((item) =>
 $("#shrinkItemButton").addEventListener("click", () => mutateSelected((item) => item.scale = Math.max(.45, item.scale - .12)));
 $("#growItemButton").addEventListener("click", () => mutateSelected((item) => item.scale = Math.min(2.2, item.scale + .12)));
 $("#sendBackButton").addEventListener("click", () => mutateSelected((item) => item.z = Math.max(1, item.z - 1)));
-$("#bringFrontButton").addEventListener("click", () => mutateSelected((item) => item.z = Math.max(...state.journal.map((entry) => entry.z), 0) + 1));
-$("#deleteItemButton").addEventListener("click", () => { state.journal = state.journal.filter((item) => item.id !== state.selectedJournalId); state.selectedJournalId = null; persistJournal(); renderJournal(); });
-$("#clearJournalButton").addEventListener("click", () => { if (confirm("清空当前手账并重新开始？")) { state.journal = []; state.selectedJournalId = null; persistJournal(); renderJournal(); } });
+$("#bringFrontButton").addEventListener("click", () => mutateSelected((item) => item.z = Math.max(...state.journal.items.map((entry) => entry.z), 0) + 1));
+$("#deleteItemButton").addEventListener("click", () => { state.journal.items = state.journal.items.filter((item) => item.id !== state.selectedJournalId); state.selectedJournalId = null; persistJournal(); renderJournal(); });
+$("#clearJournalButton").addEventListener("click", () => { if (confirm("清空当前手账并重新开始？")) { state.journal = { version: 2, items: [] }; state.journalCleared = true; localStorage.setItem("yuditu:journal:cleared", "true"); state.selectedJournalId = null; persistJournal(); renderJournal(); } });
 journalCanvas.addEventListener("pointermove", moveJournalItem);
 journalCanvas.addEventListener("pointerup", endJournalDrag);
+journalCanvas.addEventListener("pointerdown", (event) => { if (event.target === journalCanvas) { state.selectedJournalId = null; renderJournal(); } });
 
 render();
 
