@@ -1,8 +1,9 @@
 import { applyUnlock, buildRoute, parseGoal, progressFor } from "./core.mjs";
-import { places, regions } from "./data.mjs";
-import { advanceSandParticles, createScratchState, endScratch, interpolateStroke, spawnSandParticles } from "./reveal.mjs";
+import { markerAnchors, places, regions } from "./data.mjs";
+import { advanceSandParticles, createScratchState, endScratch, insetPolygon, interpolateStroke, spawnSandParticles } from "./reveal.mjs";
 import { createAutoJournal, createJournalItem, migrateJournal, sortJournalItems } from "./journal.mjs";
 import { journalStickers } from "./journal-stickers.mjs";
+import { executeAction, getAvailableActions } from "./object-actions.mjs";
 
 const $ = (selector) => document.querySelector(selector);
 const state = {
@@ -10,6 +11,7 @@ const state = {
   activeRegion: null,
   category: "全部",
   routeStops: [],
+  routeReasons: [],
   mapView: { scale: 1, x: 0, y: 0 },
   journal: migrateJournal(JSON.parse(localStorage.getItem("yuditu:journal:v2") || localStorage.getItem("yuditu:journal") || "[]")),
   selectedJournalId: null,
@@ -47,6 +49,15 @@ function iconClassFor(category) {
   return { 展览: "icon-exhibition", 服务: "icon-service", 补给: "icon-supply", 打卡: "icon-checkin", 出入口: "icon-entrance" }[category] || "icon-service";
 }
 
+function calibratedMarkerPoint(place) {
+  if (place.type === "place") return { x: place.x, y: place.y };
+  const anchor = markerAnchors[place.category] || { anchorX: .5, anchorY: .5 };
+  return {
+    x: place.x + (.5 - anchor.anchorX) * 4,
+    y: place.y + (.5 - anchor.anchorY) * 4,
+  };
+}
+
 function persist() {
   localStorage.setItem("yuditu:unlocked", JSON.stringify(state.unlocked));
 }
@@ -68,7 +79,10 @@ function render() {
   revealLayer.innerHTML = state.unlocked.length === regions.length
     ? `<div class="region-reveal complete-reveal" data-reveal="complete"></div>`
     : regions.filter((region) => state.unlocked.includes(region.id)).map((region) =>
-      `<div class="region-reveal-feather" style="clip-path:polygon(${region.polygon})"></div><div class="region-reveal" data-reveal="${region.id}" style="clip-path:polygon(${region.polygon})"></div>`
+      `<div class="region-reveal-mist" style="clip-path:polygon(${region.polygon})"></div>
+       <div class="region-reveal-edge" style="clip-path:polygon(${insetPolygon(region.polygon, .96)})"></div>
+       <div class="region-reveal-grain" style="clip-path:polygon(${region.polygon})"></div>
+       <div class="region-reveal region-reveal-core" data-reveal="${region.id}" style="clip-path:polygon(${insetPolygon(region.polygon, .88)})"></div>`
     ).join("");
 
   regionLayer.innerHTML = regions.map((region) => `
@@ -78,15 +92,20 @@ function render() {
     </button>`).join("");
 
   markerLayer.innerHTML = places.map((place) => {
-    const visible = state.unlocked.includes(place.regionId) && (state.category === "全部" || state.category === place.category);
     const routeStop = state.routeStops.includes(place.id);
+    const visible = state.unlocked.includes(place.regionId) && (state.routeStops.length ? routeStop : state.category === "全部" || state.category === place.category);
+    const routeOrder = state.routeStops.indexOf(place.id) + 1;
+    const point = calibratedMarkerPoint(place);
+    const anchor = markerAnchors[place.category] || { anchorX: .5, anchorY: .5 };
     const numberBadge = /^\d+$/.test(place.number || "") ? `<i class="marker-number">${place.number}</i>` : "";
     const markerContent = place.type === "place"
       ? `<span class="building-number">${place.number}</span>`
       : `<span class="category-icon ${iconClassFor(place.category)}" aria-hidden="true"></span>${numberBadge}`;
-    return `<button class="marker ${place.type === "place" ? "building-marker" : "asset-marker"} ${visible ? "visible" : ""} ${routeStop ? "route-stop" : ""}"
-      data-place="${place.id}" style="left:${place.x}%;top:${place.y}%" aria-label="${place.name}">${markerContent}</button>`;
+    return `<button class="marker ${place.type === "place" ? "building-marker" : "asset-marker"} ${visible ? "visible" : ""} ${routeStop ? "route-stop" : ""} ${state.routeStops.length && !routeStop ? "route-hidden" : ""}"
+      data-place="${place.id}" style="left:${point.x}%;top:${point.y}%;--anchor-x:${anchor.anchorX};--anchor-y:${anchor.anchorY}" aria-label="${place.name}">${markerContent}${routeStop ? `<i class="route-order">${routeOrder}</i>` : ""}</button>`;
   }).join("");
+  renderRouteLines();
+  mapStage.classList.toggle("route-focus", state.routeStops.length > 0);
 
   regionLayer.querySelectorAll("[data-region]").forEach((button) => button.addEventListener("click", () => {
     const id = button.dataset.region;
@@ -94,6 +113,38 @@ function render() {
   }));
   markerLayer.querySelectorAll("[data-place]").forEach((button) => button.addEventListener("click", () => openDetail(button.dataset.place)));
   renderJournal();
+}
+
+function renderRouteLines() {
+  const points = state.routeStops.map((id) => calibratedMarkerPoint(places.find((place) => place.id === id)));
+  if (points.length < 2) {
+    $("#routeLines").innerHTML = "";
+    return;
+  }
+  const path = routePathData(points);
+  $("#routeLines").innerHTML = `<path class="route-path-shadow" d="${path}"></path><path class="route-path" d="${path}"></path>`;
+}
+
+function routePathData(points) {
+  return points.slice(1).reduce((path, point, index) => {
+    const previous = points[index];
+    const dx = point.x - previous.x;
+    return `${path} C ${previous.x + dx * .35} ${previous.y}, ${point.x - dx * .35} ${point.y}, ${point.x} ${point.y}`;
+  }, `M ${points[0].x} ${points[0].y}`);
+}
+
+function focusRoute() {
+  const points = state.routeStops.map((id) => calibratedMarkerPoint(places.find((place) => place.id === id)));
+  if (!points.length) return;
+  const rect = mapStage.getBoundingClientRect();
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const width = Math.max(24, Math.max(...xs) - Math.min(...xs) + 18);
+  const height = Math.max(24, Math.max(...ys) - Math.min(...ys) + 18);
+  const scale = Math.min(2.5, Math.max(1.15, Math.min(100 / width, 100 / height)));
+  const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+  setMapView(scale, (50 - centerX) / 100 * rect.width * scale, (50 - centerY) / 100 * rect.height * scale);
 }
 
 function applyMapTransform() {
@@ -255,7 +306,44 @@ function openDetail(id) {
   $("#detailDescription").textContent = place.metadata.description;
   $("#detailTags").innerHTML = [...place.tags, ...place.metadata.facilities].map((tag) => `<span>${tag}</span>`).join("");
   $("#detailObject").textContent = `${place.type} · actions: ${place.actions.join(", ")}`;
+  const actions = getAvailableActions(place, { unlocked: state.unlocked });
+  const labels = { open_detail: "查看详情", focus_on_object: "地图聚焦", add_to_route: "加入路线", create_journal: "加入手账", set_as_start: "设为起点" };
+  $("#detailActions").innerHTML = actions.filter((action) => action !== "open_detail").map((action) => `<button data-object-action="${action}">${labels[action] || action}</button>`).join("");
+  $("#detailActions").querySelectorAll("[data-object-action]").forEach((button) => button.addEventListener("click", () => runObjectAction(button.dataset.objectAction, place)));
   detailDialog.showModal();
+}
+
+function runObjectAction(actionId, place) {
+  const adapters = {
+    focus_on_object: (object) => {
+      detailDialog.close();
+      const rect = mapStage.getBoundingClientRect();
+      const point = calibratedMarkerPoint(object);
+      setMapView(2.15, (50 - point.x) / 100 * rect.width * 2.15, (50 - point.y) / 100 * rect.height * 2.15);
+      showToast(`已聚焦 ${object.name}`);
+    },
+    add_to_route: (object) => {
+      if (!state.routeStops.includes(object.id)) state.routeStops.push(object.id);
+      detailDialog.close();
+      render();
+      requestAnimationFrame(focusRoute);
+      showToast(`${object.name}已加入路线`);
+    },
+    create_journal: (object) => {
+      detailDialog.close();
+      addPlaceToJournal(object.id);
+      showScreen("journal");
+    },
+    set_as_start: (object) => {
+      state.routeStops = [object.id, ...state.routeStops.filter((id) => id !== object.id)];
+      detailDialog.close();
+      render();
+      requestAnimationFrame(focusRoute);
+      showToast(`${object.name}已设为路线起点`);
+    },
+  };
+  const result = executeAction(actionId, place, { unlocked: state.unlocked, adapters });
+  if (!result.ok) showToast("当前状态下无法执行此操作");
 }
 
 function showToast(text) {
@@ -455,10 +543,21 @@ $("#heroJournalButton").addEventListener("click", () => { hero.classList.add("is
 $("#goalToggle").addEventListener("click", () => $("#goalForm").classList.toggle("is-hidden"));
 $("#goalForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  const route = buildRoute(places, parseGoal($("#goalInput").value));
+  const route = buildRoute(places, parseGoal($("#goalInput").value), { unlocked: state.unlocked });
   state.routeStops = route.stops.map((place) => place.id);
-  $("#routeResult").innerHTML = `<strong>${route.estimatedMinutes} 分钟 · ${route.stops.map((stop) => stop.name).join(" → ")}</strong>${route.reason}`;
+  state.routeReasons = route.stopReasons;
+  $("#routeResult").innerHTML = `<strong>${route.estimatedMinutes} 分钟 · ${route.stops.map((stop) => stop.name).join(" → ") || "暂无路线"}</strong>${route.reason}${route.stopReasons.map((item, index) => `<span>${index + 1}. ${route.stops[index].name}：${item.reason}</span>`).join("")}`;
   $("#routeResult").classList.remove("is-hidden");
+  $("#exitRouteButton").classList.toggle("is-hidden", !state.routeStops.length);
+  render();
+  requestAnimationFrame(focusRoute);
+});
+$("#exitRouteButton").addEventListener("click", () => {
+  state.routeStops = [];
+  state.routeReasons = [];
+  $("#routeResult").classList.add("is-hidden");
+  $("#exitRouteButton").classList.add("is-hidden");
+  resetMapView();
   render();
 });
 $("#resetButton").addEventListener("click", () => { if (confirm("重新覆盖校园尘沙并清除显影进度？")) { state.unlocked = []; state.routeStops = []; persist(); resetMapView(); render(); } });
@@ -544,8 +643,9 @@ const preview = new URLSearchParams(location.search).get("preview");
 if (preview === "map" || preview === "route") {
   hero.classList.add("is-hidden"); mapScreen.classList.remove("is-hidden"); bottomNav.classList.remove("is-hidden");
   state.unlocked = preview === "route" ? regions.map((region) => region.id) : ["east"];
-  if (preview === "route") { const route = buildRoute(places, parseGoal($("#goalInput").value)); state.routeStops = route.stops.map((place) => place.id); }
+  if (preview === "route") { const route = buildRoute(places, parseGoal($("#goalInput").value), { unlocked: state.unlocked }); state.routeStops = route.stops.map((place) => place.id); state.routeReasons = route.stopReasons; }
   render();
+  if (preview === "route") requestAnimationFrame(focusRoute);
 }
 if (preview === "journal") { hero.classList.add("is-hidden"); bottomNav.classList.remove("is-hidden"); state.unlocked = ["east", "west"]; showScreen("journal"); render(); }
 if (preview === "unlock") { hero.classList.add("is-hidden"); mapScreen.classList.remove("is-hidden"); bottomNav.classList.remove("is-hidden"); render(); openUnlock("east"); }

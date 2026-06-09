@@ -17,29 +17,53 @@ export function parseGoal(input = "") {
   };
 }
 
-export function buildRoute(places, goal) {
+function matchScore(place, wanted) {
+  return wanted.filter((tag) => place.tags.includes(tag)).length * 10 +
+    (place.metadata.representativeScore || 0);
+}
+
+function distanceBetween(a, b) {
+  return Math.hypot((a.x || 0) - (b.x || 0), (a.y || 0) - (b.y || 0));
+}
+
+function explainStop(place, wanted, previous) {
+  const matches = wanted.filter((tag) => place.tags.includes(tag));
+  if (matches.length) return `匹配你的${matches.join("、")}目标${previous ? "，并与上一站顺路" : ""}。`;
+  if ((place.metadata.representativeScore || 0) >= .7) return `代表性较高${previous ? "，且适合接续上一站" : ""}。`;
+  return previous ? "适合顺路补充这段校园体验。" : "适合作为本次探索的起点。";
+}
+
+export function buildRoute(places, goal, context = {}) {
   const wanted = [...goal.interests, ...goal.needs];
-  const ranked = [...places].sort((a, b) => {
-    const score = (place) =>
-      wanted.filter((tag) => place.tags.includes(tag)).length * 10 +
-      (place.metadata.representativeScore || 0);
-    return score(b) - score(a);
-  });
+  const candidates = context.unlocked
+    ? places.filter((place) => context.unlocked.includes(place.regionId))
+    : [...places];
+  const remaining = [...candidates];
 
   const stops = [];
+  const stopReasons = [];
   let estimatedMinutes = 0;
-  for (const place of ranked) {
+  while (remaining.length && stops.length < 4) {
+    const previous = stops.at(-1);
+    remaining.sort((a, b) => {
+      const distancePenalty = (place) => previous ? distanceBetween(previous, place) * .08 : 0;
+      return (matchScore(b, wanted) - distancePenalty(b)) - (matchScore(a, wanted) - distancePenalty(a));
+    });
+    const place = remaining.shift();
     const visitMinutes = place.metadata.visitMinutes || 5;
     if (estimatedMinutes + visitMinutes > goal.timeBudgetMinutes) continue;
     stops.push(place);
+    stopReasons.push({ placeId: place.id, reason: explainStop(place, wanted, previous) });
     estimatedMinutes += visitMinutes;
-    if (stops.length === 4) break;
   }
 
   return {
     stops,
+    stopReasons,
     estimatedMinutes,
-    reason: `根据你的目标，在 ${goal.timeBudgetMinutes} 分钟内优先串联代表性与需求匹配度最高的地点。`,
+    reason: stops.length
+      ? `根据你的目标，在 ${goal.timeBudgetMinutes} 分钟内优先串联已显影、匹配且顺路的地点。`
+      : "当前没有可规划的已显影地点，请先显影一片校园。",
   };
 }
 

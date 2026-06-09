@@ -49,3 +49,10 @@ export function advanceSandParticles(particles, elapsed) {
     return [{ ...particle, age, x: particle.x + particle.vx * seconds, y: particle.y + particle.vy * seconds, vy: particle.vy + 55 * seconds, rotation: particle.rotation + particle.spin * elapsed }];
   });
 }
+
+export function insetPolygon(polygon, scale = .88) {
+  const points = polygon.split(",").map((pair) => pair.trim().split(/\s+/).map((value) => Number.parseFloat(value)));
+  const center = points.reduce((result, point) => ({ x: result.x + point[0] / points.length, y: result.y + point[1] / points.length }), { x: 0, y: 0 });
+  const format = (value) => Number(value.toFixed(2));
+  return points.map(([x, y]) => `${format(center.x + (x - center.x) * scale)}% ${format(center.y + (y - center.y) * scale)}%`).join(", ");
+}

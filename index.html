@@ -43,6 +43,7 @@
             <button type="submit">生成路线</button>
           </form>
           <div class="route-result is-hidden" id="routeResult"></div>
+          <button class="exit-route-button is-hidden" id="exitRouteButton">退出路线</button>
         </section>
 
         <section class="map-card">
@@ -55,7 +56,7 @@
             <div class="map-transform" id="mapTransform">
               <img class="map-base sandified-map" src="./assets/map.jpg" alt="中央美术学院花家地校区待显影地图" />
               <div class="reveal-layer" id="revealLayer"></div>
-              <div class="route-lines" id="routeLines"></div>
+              <svg class="route-lines" id="routeLines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
               <div class="region-layer" id="regionLayer"></div>
               <div class="marker-layer" id="markerLayer"></div>
             </div>
@@ -150,6 +151,7 @@
         <span>AI 可理解对象</span>
         <code id="detailObject"></code>
       </div>
+      <div class="detail-actions" id="detailActions"></div>
     </dialog>
 
     <div class="toast is-hidden" id="toast"></div>

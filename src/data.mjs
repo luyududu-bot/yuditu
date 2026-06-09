@@ -5,6 +5,14 @@ export const regions = [
   { id: "south", name: "南部", subtitle: "抵达与日常", x: 55, y: 79, polygon: "8% 67%, 48% 58%, 95% 66%, 96% 100%, 4% 100%" },
 ];
 
+export const markerAnchors = {
+  展览: { anchorX: .5, anchorY: .57 },
+  服务: { anchorX: .5, anchorY: .56 },
+  补给: { anchorX: .5, anchorY: .58 },
+  打卡: { anchorX: .5, anchorY: .54 },
+  出入口: { anchorX: .5, anchorY: .6 },
+};
+
 export const places = [
   {
     id: "museum",
@@ -16,7 +24,7 @@ export const places = [
     x: 87,
     y: 40,
     tags: ["看展", "代表性", "第一次来", "打卡"],
-    relations: { nearby: ["thinker", "history_museum"], contains: ["cafe", "charging"] },
+    relations: { nearby: ["thinker", "building_4"], contains: ["north_cafe"] },
     actions: ["view_detail", "add_to_route", "create_journal"],
     constraints: { requiresRegionUnlocked: true },
     metadata: {
@@ -76,7 +84,7 @@ export const places = [
     x: 77,
     y: 17,
     tags: ["补给", "咖啡", "充电"],
-    relations: { inside: "north_hall" },
+    relations: { nearby: ["building_14", "building_15"] },
     actions: ["view_detail", "add_to_route"],
     constraints: { requiresRegionUnlocked: true },
     metadata: {

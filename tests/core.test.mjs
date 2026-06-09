@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { applyUnlock, buildRoute, parseGoal, progressFor } from "../src/core.mjs";
-import { advanceSandParticles, createScratchState, endScratch, interpolateStroke, spawnSandParticles } from "../src/reveal.mjs";
+import { advanceSandParticles, createScratchState, endScratch, insetPolygon, interpolateStroke, spawnSandParticles } from "../src/reveal.mjs";
 import { createAutoJournal, migrateJournal, sortJournalItems } from "../src/journal.mjs";
-import { places as campusPlaces } from "../src/data.mjs";
+import { markerAnchors, places as campusPlaces, regions } from "../src/data.mjs";
 import { journalStickers } from "../src/journal-stickers.mjs";
+import { executeAction, getAvailableActions, listObjects, validateObjectData } from "../src/object-actions.mjs";
 
 const places = [
   { id: "museum", name: "美术馆", tags: ["看展", "代表性", "第一次来"], metadata: { representativeScore: 0.98, visitMinutes: 8 } },
@@ -26,6 +27,28 @@ test("buildRoute respects time budget and explains recommendation", () => {
   assert.deepEqual(route.stops.map((stop) => stop.id), ["museum", "thinker"]);
   assert.equal(route.estimatedMinutes, 13);
   assert.match(route.reason, /15 分钟/);
+});
+
+test("buildRoute only uses unlocked places and explains every stop", () => {
+  const routePlaces = [
+    { ...places[0], regionId: "east", x: 10, y: 10 },
+    { ...places[1], regionId: "west", x: 12, y: 10 },
+    { ...places[2], regionId: "south", x: 90, y: 90 },
+  ];
+  const route = buildRoute(routePlaces, parseGoal("第一次来，只有20分钟，想看代表性的地方"), { unlocked: ["east", "west"] });
+  assert.deepEqual(route.stops.map((stop) => stop.id), ["museum", "thinker"]);
+  assert.equal(route.stopReasons.length, 2);
+  assert.ok(route.stopReasons.every((item) => item.reason.length > 0));
+});
+
+test("buildRoute prefers a nearby equally relevant next stop", () => {
+  const routePlaces = [
+    { id: "start", name: "起点", regionId: "east", x: 10, y: 10, tags: ["代表性"], metadata: { representativeScore: 1, visitMinutes: 3 } },
+    { id: "near", name: "附近", regionId: "east", x: 14, y: 10, tags: ["代表性"], metadata: { representativeScore: .8, visitMinutes: 3 } },
+    { id: "far", name: "远处", regionId: "east", x: 90, y: 90, tags: ["代表性"], metadata: { representativeScore: .8, visitMinutes: 3 } },
+  ];
+  const route = buildRoute(routePlaces, parseGoal("10分钟，想看代表性的地方"), { unlocked: ["east"] });
+  assert.deepEqual(route.stops.slice(0, 2).map((stop) => stop.id), ["start", "near"]);
 });
 
 test("unlock state stays unique and reports progress", () => {
@@ -126,7 +149,7 @@ test("immersive reveal exposes particle canvas, cancellation recovery, and polyg
   assert.match(app, /pointercancel/);
   assert.match(app, /lostpointercapture/);
   assert.match(app, /region\.polygon/);
-  assert.match(css, /\.region-reveal-feather/);
+  assert.match(css, /\.region-reveal-mist/);
   assert.match(app, /createRadialGradient/);
 });
 
@@ -137,4 +160,80 @@ test("journal uses bound paper, contextual tools, drawers, and real sticker asse
   assert.match(html, /id="journalSelectionTools"/);
   assert.ok(journalStickers.length >= 8);
   journalStickers.forEach((sticker) => assert.ok(existsSync(new URL(`../${sticker.src.replace("./", "")}`, import.meta.url)), sticker.src));
+});
+
+test("insetPolygon pulls the clear reveal core away from hard outer edges", () => {
+  assert.equal(insetPolygon("0% 0%, 100% 0%, 100% 100%, 0% 100%", .8), "10% 10%, 90% 10%, 90% 90%, 10% 90%");
+});
+
+test("route focus renders an SVG path, ordered stops, explanations, and exit control", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  assert.match(html, /<svg[^>]+id="routeLines"/);
+  assert.match(html, /id="exitRouteButton"/);
+  assert.match(app, /route-order/);
+  assert.match(app, /stopReasons/);
+  assert.match(app, /focusRoute/);
+  assert.match(app, /routePathData/);
+  assert.match(css, /\.route-focus/);
+});
+
+test("graphical marker categories expose normalized visual anchors", () => {
+  ["展览", "服务", "补给", "打卡", "出入口"].forEach((category) => {
+    assert.ok(markerAnchors[category]);
+    assert.ok(markerAnchors[category].anchorX >= 0 && markerAnchors[category].anchorX <= 1);
+    assert.ok(markerAnchors[category].anchorY >= 0 && markerAnchors[category].anchorY <= 1);
+  });
+  const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
+  assert.match(app, /calibratedMarkerPoint/);
+  assert.match(app, /--anchor-x/);
+  const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  assert.match(css, /background-size:\s*300%\s+200%/);
+  assert.match(css, /\.marker-number\s*\{[^}]*left:\s*50%[^}]*top:\s*50%/s);
+});
+
+test("revealed regions render core, edge, mist, and grain transition layers", () => {
+  const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  assert.match(app, /region-reveal-core/);
+  assert.match(app, /region-reveal-edge/);
+  assert.match(app, /region-reveal-mist/);
+  assert.match(app, /region-reveal-grain/);
+  assert.match(css, /prefers-reduced-motion/);
+});
+
+test("object actions filter by unlocked state and dispatch through adapters", () => {
+  const visible = listObjects(campusPlaces, { category: "展览" }, { unlocked: ["east"] });
+  assert.ok(visible.some((place) => place.id === "museum"));
+  assert.ok(visible.every((place) => place.regionId === "east"));
+  assert.deepEqual(getAvailableActions(campusPlaces[0], { unlocked: [] }), []);
+  const calls = [];
+  const result = executeAction("open_detail", campusPlaces[0], { unlocked: ["east"], adapters: { open_detail: (object) => calls.push(object.id) } });
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls, ["museum"]);
+});
+
+test("object data validation catches broken references and unsupported actions", () => {
+  const errors = validateObjectData(
+    [{ id: "r1" }],
+    [
+      { id: "p1", regionId: "missing", actions: ["unknown"], relations: { nearby: ["ghost"] }, metadata: { representativeScore: 2, visitMinutes: 0 } },
+      { id: "p1", regionId: "r1", actions: [], relations: {}, metadata: { representativeScore: .5, visitMinutes: 3 } },
+    ],
+  );
+  assert.ok(errors.some((error) => error.code === "duplicate-id"));
+  assert.ok(errors.some((error) => error.code === "invalid-region"));
+  assert.ok(errors.some((error) => error.code === "dangling-relation"));
+  assert.ok(errors.some((error) => error.code === "unknown-action"));
+  assert.ok(errors.some((error) => error.code === "invalid-route-metadata"));
+  assert.deepEqual(validateObjectData(regions, campusPlaces), []);
+});
+
+test("detail dialog exposes executable object action controls", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
+  assert.match(html, /id="detailActions"/);
+  assert.match(app, /executeAction/);
+  assert.match(app, /getAvailableActions/);
 });
