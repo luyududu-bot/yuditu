@@ -189,8 +189,24 @@ test("graphical marker categories expose normalized visual anchors", () => {
   assert.match(app, /calibratedMarkerPoint/);
   assert.match(app, /--anchor-x/);
   const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
-  assert.match(css, /background-size:\s*300%\s+200%/);
+  assert.match(css, /assets\/category-icons\/exhibition\.png/);
   assert.match(css, /\.marker-number\s*\{[^}]*left:\s*50%[^}]*top:\s*50%/s);
+});
+
+test("map icons and journal stickers use transparent cutout PNG assets", () => {
+  const transparentAssets = [
+    "assets/category-icons/exhibition.png",
+    "assets/category-icons/service.png",
+    "assets/category-icons/supply.png",
+    "assets/category-icons/checkin.png",
+    "assets/category-icons/entrance.png",
+    ...journalStickers.map((sticker) => sticker.src.replace("./", "")),
+  ];
+  transparentAssets.forEach((asset) => {
+    const bytes = readFileSync(new URL(`../${asset}`, import.meta.url));
+    assert.equal(bytes.toString("ascii", 1, 4), "PNG", asset);
+    assert.equal(bytes[25], 6, `${asset} must be RGBA PNG`);
+  });
 });
 
 test("revealed regions render core, edge, mist, and grain transition layers", () => {

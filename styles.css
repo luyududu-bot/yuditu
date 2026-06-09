@@ -72,14 +72,14 @@ button { cursor: pointer; }
 .marker { position: absolute; transform: translate(-50%, -50%) scale(.8); border: 0; opacity: 0; transition: .5s ease; pointer-events: none; background: transparent; }
 .building-marker { width: 25px; height: 25px; border: 2px solid #fff9ef; border-radius: 50%; color: #fff; background: #9d635d; box-shadow: 0 3px 10px rgba(95,49,42,.38); }
 .building-number { display: grid; place-items: center; width: 100%; height: 100%; font: 700 10px/1 system-ui, sans-serif; }
-.asset-marker { width: 42px; height: 42px; }
+.asset-marker { width: 56px; height: 56px; }
 .marker-number { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 3px; border: 2px solid white; border-radius: 99px; color: white; background: #9d635d; font: 700 8px/1 system-ui, sans-serif; box-shadow: 0 2px 6px rgba(70,40,30,.25); }
-.category-icon { display: block; width: 100%; height: 100%; background-image: url("./assets/category-icons.png"); background-repeat: no-repeat; background-size: 300% 200%; mix-blend-mode: multiply; filter: drop-shadow(0 3px 4px rgba(95,49,42,.2)); }
-.icon-exhibition { background-position: 50% 0%; }
-.icon-service { background-position: 100% 0%; }
-.icon-supply { background-position: 0% 100%; }
-.icon-checkin { background-position: 50% 100%; }
-.icon-entrance { background-position: 100% 100%; }
+.category-icon { display: block; width: 100%; height: 100%; background-position: center; background-repeat: no-repeat; background-size: contain; filter: drop-shadow(0 3px 4px rgba(95,49,42,.2)); }
+.icon-exhibition { background-image: url("./assets/category-icons/exhibition.png"); }
+.icon-service { background-image: url("./assets/category-icons/service.png"); }
+.icon-supply { background-image: url("./assets/category-icons/supply.png"); }
+.icon-checkin { background-image: url("./assets/category-icons/checkin.png"); }
+.icon-entrance { background-image: url("./assets/category-icons/entrance.png"); }
 .marker.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
 .marker.route-stop { filter: drop-shadow(0 0 8px #d3839b); }
 .marker.route-hidden, .route-focus .region-chip { opacity: 0; pointer-events: none; }
@@ -171,7 +171,7 @@ dialog::backdrop { background: rgba(47, 32, 26, .55); backdrop-filter: blur(5px)
 .journal-flower { position: absolute; z-index: 7; right: 12px; top: 7px; color: #d98c91; font-size: 28px; transform: rotate(12deg); pointer-events: none; }
 .journal-item.label { min-width: 90px; padding: 8px 12px; background: #eebdb6; box-shadow: 2px 3px 7px rgba(90,55,40,.12); font-weight: 700; }
 .journal-item.sticker { width: 180px; height: 120px; border-radius: 0; background: transparent; box-shadow: none; }
-.journal-item.sticker img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; pointer-events: none; }
+.journal-item.sticker img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 .journal-item.selected { outline: 2px dashed #cf766f; outline-offset: 5px; }
 .journal-selection-tools { position: fixed; z-index: 24; left: 50%; bottom: 128px; transform: translateX(-50%); width: min(calc(100% - 34px), 474px); padding: 6px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,250,243,.96); box-shadow: 0 8px 25px rgba(70,45,34,.2); backdrop-filter: blur(12px); }
 .journal-selection-tools button { flex: 1 0 auto; padding: 7px 9px; }
@@ -183,7 +183,7 @@ dialog::backdrop { background: rgba(47, 32, 26, .55); backdrop-filter: blur(5px)
 .journal-drawer header button { border: 0; border-radius: 50%; width: 28px; height: 28px; background: #f0e4d8; }
 .sticker-categories { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .sticker-categories button { border: 1px solid var(--line); border-radius: 14px; padding: 7px; color: var(--ink); background: #fffaf4; }
-.sticker-categories img { display: block; width: 100%; height: 90px; object-fit: contain; mix-blend-mode: multiply; }
+.sticker-categories img { display: block; width: 100%; height: 90px; object-fit: contain; }
 .sticker-categories span { display: block; font-size: 10px; }
 .clear-journal-button { display: block; margin: 12px auto 0; border: 0; color: var(--muted); background: transparent; font-size: 10px; }
 @media (prefers-reduced-motion: reduce) {

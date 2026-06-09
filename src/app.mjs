@@ -640,12 +640,13 @@ journalCanvas.addEventListener("pointerdown", (event) => { if (event.target === 
 render();
 
 const preview = new URLSearchParams(location.search).get("preview");
-if (preview === "map" || preview === "route") {
+if (preview === "map" || preview === "route" || preview === "all") {
   hero.classList.add("is-hidden"); mapScreen.classList.remove("is-hidden"); bottomNav.classList.remove("is-hidden");
-  state.unlocked = preview === "route" ? regions.map((region) => region.id) : ["east"];
+  state.unlocked = preview === "route" || preview === "all" ? regions.map((region) => region.id) : ["east"];
   if (preview === "route") { const route = buildRoute(places, parseGoal($("#goalInput").value), { unlocked: state.unlocked }); state.routeStops = route.stops.map((place) => place.id); state.routeReasons = route.stopReasons; }
   render();
   if (preview === "route") requestAnimationFrame(focusRoute);
 }
 if (preview === "journal") { hero.classList.add("is-hidden"); bottomNav.classList.remove("is-hidden"); state.unlocked = ["east", "west"]; showScreen("journal"); render(); }
+if (preview === "stickers") { hero.classList.add("is-hidden"); bottomNav.classList.remove("is-hidden"); state.unlocked = ["east", "west"]; showScreen("journal"); state.journalDrawer = "stickers"; render(); }
 if (preview === "unlock") { hero.classList.add("is-hidden"); mapScreen.classList.remove("is-hidden"); bottomNav.classList.remove("is-hidden"); render(); openUnlock("east"); }
