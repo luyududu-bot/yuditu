@@ -162,6 +162,16 @@ test("journal uses bound paper, contextual tools, drawers, and real sticker asse
   journalStickers.forEach((sticker) => assert.ok(existsSync(new URL(`../${sticker.src.replace("./", "")}`, import.meta.url)), sticker.src));
 });
 
+test("campus data includes all three annotated gates", () => {
+  const gates = campusPlaces.filter((place) => place.category === "出入口");
+  assert.deepEqual(gates.map((gate) => gate.name).sort(), ["东门", "北门", "南门"]);
+  assert.ok(gates.every((gate) => gate.type === "entrance"));
+  assert.ok(gates.every((gate) => gate.actions.includes("set_as_start")));
+  const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
+  assert.match(app, /marker-name-label/);
+  assert.match(app, /edge-right/);
+});
+
 test("insetPolygon pulls the clear reveal core away from hard outer edges", () => {
   assert.equal(insetPolygon("0% 0%, 100% 0%, 100% 100%, 0% 100%", .8), "10% 10%, 90% 10%, 90% 90%, 10% 90%");
 });

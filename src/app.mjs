@@ -98,9 +98,10 @@ function render() {
     const point = calibratedMarkerPoint(place);
     const anchor = markerAnchors[place.category] || { anchorX: .5, anchorY: .5 };
     const numberBadge = /^\d+$/.test(place.number || "") ? `<i class="marker-number">${place.number}</i>` : "";
+    const entranceLabelClass = place.x >= 88 ? " edge-right" : place.y >= 88 ? " edge-bottom" : "";
     const markerContent = place.type === "place"
       ? `<span class="building-number">${place.number}</span>`
-      : `<span class="category-icon ${iconClassFor(place.category)}" aria-hidden="true"></span>${numberBadge}`;
+      : `<span class="category-icon ${iconClassFor(place.category)}" aria-hidden="true"></span>${numberBadge}${place.type === "entrance" ? `<span class="marker-name-label${entranceLabelClass}">${place.name}</span>` : ""}`;
     return `<button class="marker ${place.type === "place" ? "building-marker" : "asset-marker"} ${visible ? "visible" : ""} ${routeStop ? "route-stop" : ""} ${state.routeStops.length && !routeStop ? "route-hidden" : ""}"
       data-place="${place.id}" style="left:${point.x}%;top:${point.y}%;--anchor-x:${anchor.anchorX};--anchor-y:${anchor.anchorY}" aria-label="${place.name}">${markerContent}${routeStop ? `<i class="route-order">${routeOrder}</i>` : ""}</button>`;
   }).join("");
