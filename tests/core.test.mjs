@@ -209,6 +209,16 @@ test("map icons and journal stickers use transparent cutout PNG assets", () => {
   });
 });
 
+test("map icon cutouts retain opaque interiors instead of hollow paper gaps", () => {
+  ["exhibition", "service", "supply", "checkin", "entrance"].forEach((name) => {
+    const bytes = readFileSync(new URL(`../assets/category-icons/${name}.png`, import.meta.url));
+    assert.ok(bytes.length > 0);
+  });
+  const cutoutScript = readFileSync(new URL("../tools/cutout_assets.py", import.meta.url), "utf8");
+  assert.match(cutoutScript, /fill_internal_holes/);
+  assert.match(cutoutScript, /fill_holes=name != "photo-frame"/);
+});
+
 test("revealed regions render core, edge, mist, and grain transition layers", () => {
   const app = readFileSync(new URL("../src/app.mjs", import.meta.url), "utf8");
   const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");

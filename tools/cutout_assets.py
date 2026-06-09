@@ -29,7 +29,26 @@ def connected_components(mask):
     return components
 
 
-def cutout(source, destination, keep=1, padding=10, min_component_ratio=0.002):
+def fill_internal_holes(mask):
+    height, width = mask.shape
+    outside = np.zeros_like(mask, dtype=bool)
+    queue = deque()
+    for x in range(width):
+        queue.extend(((0, x), (height - 1, x)))
+    for y in range(height):
+        queue.extend(((y, 0), (y, width - 1)))
+    while queue:
+        y, x = queue.popleft()
+        if outside[y, x] or mask[y, x]:
+            continue
+        outside[y, x] = True
+        for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+            if 0 <= ny < height and 0 <= nx < width and not outside[ny, nx] and not mask[ny, nx]:
+                queue.append((ny, nx))
+    return mask | ~outside
+
+
+def cutout(source, destination, keep=1, padding=10, min_component_ratio=0.002, fill_holes=True):
     image = Image.open(source).convert("RGB")
     rgb = np.asarray(image).astype(np.int16)
     height, width = rgb.shape[:2]
@@ -53,6 +72,8 @@ def cutout(source, destination, keep=1, padding=10, min_component_ratio=0.002):
         ys, xs = zip(*component)
         mask[np.array(ys), np.array(xs)] = 255
 
+    if fill_holes:
+        mask = (fill_internal_holes(mask > 0) * 255).astype(np.uint8)
     mask_image = Image.fromarray(mask).filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.GaussianBlur(1.2))
     alpha = np.asarray(mask_image)
     ys, xs = np.where(alpha > 5)
@@ -104,7 +125,7 @@ def cutout_stickers():
         path = STICKERS / f"{name}.png"
         temporary = STICKERS / f".{name}-source.png"
         sheet.crop(box).save(temporary)
-        cutout(temporary, path, keep=keep_counts.get(name, 1), padding=8, min_component_ratio=.008)
+        cutout(temporary, path, keep=keep_counts.get(name, 1), padding=8, min_component_ratio=.008, fill_holes=name != "photo-frame")
         temporary.unlink()
 
 
